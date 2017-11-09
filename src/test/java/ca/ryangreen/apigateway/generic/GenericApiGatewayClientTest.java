@@ -90,7 +90,7 @@ public class GenericApiGatewayClientTest {
                                 && x.getFirstHeader("Account-Id").getValue().equals("fubar")
                                 && x.getFirstHeader("x-api-key").getValue().equals("12345")
                                 && x.getFirstHeader("Authorization").getValue().startsWith("AWS4")
-                                && x.getURI().toString().equals(join( ENDPOINT, RESOURCE_PATH, "?key1=value1"))))),
+                                && x.getURI().toString().equals(join(ENDPOINT, RESOURCE_PATH, "?key1=value1"))))),
                 any(HttpContext.class));
     }
 
@@ -147,7 +147,7 @@ public class GenericApiGatewayClientTest {
         }
     }
 
-    private static String join(String ... values) {
+    private static String join(String... values) {
         return Stream.of(values).collect(Collectors.joining());
     }
 
