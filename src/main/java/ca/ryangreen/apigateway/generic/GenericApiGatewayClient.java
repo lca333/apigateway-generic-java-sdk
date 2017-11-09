@@ -6,6 +6,7 @@ import com.amazonaws.ClientConfiguration;
 import com.amazonaws.DefaultRequest;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.http.AmazonHttpClient;
 import com.amazonaws.http.ExecutionContext;
 import com.amazonaws.http.HttpMethodName;
@@ -23,6 +24,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GenericApiGatewayClient extends AmazonWebServiceClient {
@@ -64,10 +66,10 @@ public class GenericApiGatewayClient extends AmazonWebServiceClient {
     }
 
     public GenericApiGatewayResponse execute(GenericApiGatewayRequest request) {
-        return execute(request.getHttpMethod(), request.getResourcePath(), request.getHeaders(), request.getBody());
+        return execute(request.getHttpMethod(), request.getResourcePath(), request.getHeaders(), request.getParameters(), request.getBody());
     }
 
-    private GenericApiGatewayResponse execute(HttpMethodName method, String resourcePath, Map<String, String> headers, InputStream content) {
+    private GenericApiGatewayResponse execute(HttpMethodName method, String resourcePath, Map<String, String> headers, Map<String, List<String>> parameters, InputStream content) {
         final ExecutionContext executionContext = buildExecutionContext();
 
         DefaultRequest request = new DefaultRequest(API_GATEWAY_SERVICE_NAME);
@@ -76,8 +78,13 @@ public class GenericApiGatewayClient extends AmazonWebServiceClient {
         request.setEndpoint(this.endpoint);
         request.setResourcePath(resourcePath);
         request.setHeaders(buildRequestHeaders(headers, apiKey));
+        request.setParameters(parameters);
 
-        return this.client.execute(request, responseHandler, errorResponseHandler, executionContext).getAwsResponse();
+        return this.client.requestExecutionBuilder()
+                .request(request)
+                .errorResponseHandler(errorResponseHandler)
+                .executionContext(executionContext)
+                .execute(responseHandler).getAwsResponse().getResult();
     }
 
     private ExecutionContext buildExecutionContext() {

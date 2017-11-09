@@ -24,7 +24,11 @@ import org.mockito.Mockito;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
@@ -34,6 +38,9 @@ import static org.mockito.Mockito.times;
 public class GenericApiGatewayClientTest {
     private GenericApiGatewayClient client;
     private SdkHttpClient mockClient;
+    private static final String ENDPOINT = "https://foobar.execute-api.us-east-1.amazonaws.com";
+    private static final String RESOURCE_PATH = "/test/orders";
+
     @Before
     public void setUp() throws IOException {
         AWSCredentialsProvider credentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("foo", "bar"));
@@ -50,7 +57,7 @@ public class GenericApiGatewayClientTest {
         client = new GenericApiGatewayClientBuilder()
                 .withClientConfiguration(clientConfig)
                 .withCredentials(credentials)
-                .withEndpoint("https://foobar.execute-api.us-east-1.amazonaws.com")
+                .withEndpoint(ENDPOINT)
                 .withRegion(Region.getRegion(Regions.fromName("us-east-1")))
                 .withApiKey("12345")
                 .withHttpClient(new AmazonHttpClient(clientConfig, mockClient, null))
@@ -62,12 +69,18 @@ public class GenericApiGatewayClientTest {
         Map<String, String> headers = new HashMap<>();
         headers.put("Account-Id", "fubar");
         headers.put("Content-Type", "application/json");
+
+        Map<String, List<String>> parameters = new LinkedHashMap<>();
+        parameters.put("key1", Stream.of("value1").collect(Collectors.toList()));
+
         GenericApiGatewayResponse response = client.execute(
                 new GenericApiGatewayRequestBuilder()
                         .withBody(new ByteArrayInputStream("test request".getBytes()))
                         .withHttpMethod(HttpMethodName.POST)
                         .withHeaders(headers)
-                        .withResourcePath("/test/orders").build());
+                        .withParameters(parameters)
+                        .withResourcePath(RESOURCE_PATH)
+                        .build());
 
         assertEquals("Wrong response body", "test payload", response.getBody());
         assertEquals("Wrong response status", 200, response.getHttpResponse().getStatusCode());
@@ -77,14 +90,14 @@ public class GenericApiGatewayClientTest {
                                 && x.getFirstHeader("Account-Id").getValue().equals("fubar")
                                 && x.getFirstHeader("x-api-key").getValue().equals("12345")
                                 && x.getFirstHeader("Authorization").getValue().startsWith("AWS4")
-                                && x.getURI().toString().equals("https://foobar.execute-api.us-east-1.amazonaws.com/test/orders")))),
+                                && x.getURI().toString().equals(join( ENDPOINT, RESOURCE_PATH, "?key1=value1"))))),
                 any(HttpContext.class));
     }
 
     @Test
     public void testExecute_noApiKey_noCreds() throws IOException {
         client = new GenericApiGatewayClientBuilder()
-                .withEndpoint("https://foobar.execute-api.us-east-1.amazonaws.com")
+                .withEndpoint(ENDPOINT)
                 .withRegion(Region.getRegion(Regions.fromName("us-east-1")))
                 .withClientConfiguration(new ClientConfiguration())
                 .withHttpClient(new AmazonHttpClient(new ClientConfiguration(), mockClient, null))
@@ -94,7 +107,7 @@ public class GenericApiGatewayClientTest {
                 new GenericApiGatewayRequestBuilder()
                         .withBody(new ByteArrayInputStream("test request".getBytes()))
                         .withHttpMethod(HttpMethodName.POST)
-                        .withResourcePath("/test/orders").build());
+                        .withResourcePath(RESOURCE_PATH).build());
 
         assertEquals("Wrong response body", "test payload", response.getBody());
         assertEquals("Wrong response status", 200, response.getHttpResponse().getStatusCode());
@@ -103,7 +116,7 @@ public class GenericApiGatewayClientTest {
                         x -> (x.getMethod().equals("POST")
                                 && x.getFirstHeader("x-api-key") == null
                                 && x.getFirstHeader("Authorization") == null
-                                && x.getURI().toString().equals("https://foobar.execute-api.us-east-1.amazonaws.com/test/orders")))),
+                                && x.getURI().toString().equals(join(ENDPOINT, RESOURCE_PATH))))),
                 any(HttpContext.class));
     }
 
@@ -125,7 +138,7 @@ public class GenericApiGatewayClientTest {
                             .withBody(new ByteArrayInputStream("test request".getBytes()))
                             .withHttpMethod(HttpMethodName.POST)
                             .withHeaders(headers)
-                            .withResourcePath("/test/orders").build());
+                            .withResourcePath(RESOURCE_PATH).build());
 
             Assert.fail("Expected exception");
         } catch (GenericApiGatewayException e) {
@@ -134,5 +147,8 @@ public class GenericApiGatewayClientTest {
         }
     }
 
+    private static String join(String ... values) {
+        return Stream.of(values).collect(Collectors.joining());
+    }
 
 }
